@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const referralRouter = require('./routes/Referral');
+const referralRoutes = require("./routes/referral.js");
 const db = require("./config/db.js");
 const auth = require("./middleware/auth");
 const app = express();
