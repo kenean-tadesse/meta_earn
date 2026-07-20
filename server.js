@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const referralRoutes = require("./routes/referral");
+const referralRouter = require('./routes/Referral');
 const db = require("./config/db.js");
 const auth = require("./middleware/auth");
 const app = express();
@@ -59,7 +59,7 @@ app.use("/api/users", require("./routes/users"));
 app.use("/api/tasks", require("./routes/tasks"));
 app.use("/api/deposits", require("./routes/deposits"));
 app.use("/api/withdrawals", require("./routes/withdrawals"));
-app.use("/api/referral", require("./routes/referral"));
+app.use("/api/referral", require("./routes/referral.js"));
 
 app.use("/api/levels", levelRoutes);
 app.use("/api/admin", adminRoutes);
