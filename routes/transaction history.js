@@ -7,7 +7,7 @@ async function loadHistory() {
 
         const response =
             await fetch(
-                "http://localhost:5000/api/history",
+                "https://meta-earn-14.onrender.com/api/history",
                 {
                     headers: {
                         Authorization: `Bearer ${token}`

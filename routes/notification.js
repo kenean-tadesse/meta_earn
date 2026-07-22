@@ -5,7 +5,7 @@ async function loadNotifications() {
     try {
 
         const response = await fetch(
-            "http://localhost:5000/api/notifications",
+            "https://meta-earn-14.onrender.com/api/notifications",
             {
                 headers: {
                     Authorization: `Bearer ${token}`
