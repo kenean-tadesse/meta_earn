@@ -21,10 +21,15 @@ module.exports = (req, res, next) => {
             });
         }
 
-        const decoded = jwt.verify(
+   const decoded = jwt.verify(
     token,
-    process.env.JWT_SECRET
+    process.env.JWT_SECRET || "MetaEarnSuperSecret2026"
 );
+
+console.log("Decoded JWT:", decoded);
+
+req.user = decoded;
+
 
 console.log("Decoded JWT:", decoded);
 
