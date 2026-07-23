@@ -1,18 +1,30 @@
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+
 const referralRoutes = require("./routes/referral.js");
 const db = require("./config/db.js");
 const auth = require("./middleware/auth");
+
 const app = express();
 const router = express.Router();
+
 app.use(express.static("public"));
+
 // ===============================
 // MIDDLEWARE FIRST
 // ===============================
+
 console.log("SERVER STARTED - NEW VERSION");
+
+// ===============================
+// CORS CONFIGURATION
+// ===============================
+
 const allowedOrigins = [
+    // Local development
     "http://127.0.0.1:5500",
     "http://localhost:5500",
     "http://127.0.0.1:5501",
@@ -21,15 +33,13 @@ const allowedOrigins = [
     // Admin Frontend
     "https://meta-earn-admin-1yum.onrender.com",
 
-    // Other Client Frontend
+    // Client Frontend
     "https://meta-earn-full.onrender.com"
 ];
 
 app.use(cors({
     origin: function (origin, callback) {
 
-        // Allow requests without an origin
-        // (Postman, server-to-server, etc.)
         if (!origin) {
             return callback(null, true);
         }
@@ -38,11 +48,9 @@ app.use(cors({
             return callback(null, true);
         }
 
-        console.log("CORS BLOCKED ORIGIN:", origin);
+        console.log("CORS BLOCKED:", origin);
 
-        return callback(
-            new Error("Not allowed by CORS")
-        );
+        return callback(null, false);
     },
 
     credentials: true,
@@ -59,6 +67,12 @@ app.use(cors({
         "Content-Type",
         "Authorization"
     ]
+}));
+
+app.use(express.json());
+
+app.use(express.urlencoded({
+    extended: true
 }));
 
 // Explicitly handle preflight requests
