@@ -40,10 +40,9 @@ router.get("/my-link", auth, async (req, res) => {
 
 const BASE_URL =
 process.env.CLIENT_URL ||
-"http://localhost:5500/public/client";
+"https://meta-earn-full.onrender.com";
 
-const link =
-`${BASE_URL}/index.html?ref=${referralCode}`;
+const link = `${BASE_URL}/?ref=${referralCode}`;
 
         res.json({
             success: true,
