@@ -23,7 +23,8 @@ app.use(cors({
         "https://meta-earn-full.onrender.com",
 
         // Admin Frontend
-        "https://meta-earn-admin.onrender.com"
+        // Admin Frontend
+"https://meta-earn-admin-1yum.onrender.com"
     ],
 
     credentials: true,
