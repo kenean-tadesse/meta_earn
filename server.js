@@ -12,34 +12,26 @@ app.use(express.static("public"));
 // MIDDLEWARE FIRST
 // ===============================
 console.log("SERVER STARTED - NEW VERSION");
+const allowedOrigins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501",
+    "https://meta-earn-full.onrender.com",
+    "https://meta-earn-admin-1yum.onrender.com"
+];
+
 app.use(cors({
-    origin: [
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-        "http://127.0.0.1:5501",
-        "http://localhost:5501",
-
-        // Client Frontend
-        "https://meta-earn-full.onrender.com",
-
-        // Admin Frontend
-        "https://meta-earn-admin.onrender.com"
-    ],
-
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     credentials: true,
-
-    methods: [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-    ],
-
-    allowedHeaders: [
-        "Content-Type",
-        "Authorization"
-    ]
+    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+    allowedHeaders: ["Content-Type","Authorization"]
 }));
 
 // Handle preflight requests
