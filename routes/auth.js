@@ -9,7 +9,8 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 const db = require("../config/db.js");
-
+const JWT_SECRET =
+    process.env.JWT_SECRET || "MetaEarnSuperSecret2026";
 console.log("AUTH ROUTE LOADED");
 
 
