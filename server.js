@@ -31,80 +31,93 @@ const allowedOrigins = [
     // ADMIN CLIENTS
     "https://meta-earn-admin.onrender.com",
     "https://meta-earn-admin-1yum.onrender.com"
+
 ];
 
 
+// =====================================================
+// CORS OPTIONS
+// =====================================================
+
+const corsOptions = {
+
+    origin: function (origin, callback) {
+
+        // Allow requests without Origin
+        // Postman, server-side requests, etc.
+
+        if (!origin) {
+
+            return callback(null, true);
+
+        }
+
+
+        if (allowedOrigins.includes(origin)) {
+
+            return callback(null, true);
+
+        }
+
+
+        console.log(
+            "CORS BLOCKED:",
+            origin
+        );
+
+
+        return callback(
+            new Error("Not allowed by CORS")
+        );
+
+    },
+
+    credentials: true,
+
+    methods: [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "OPTIONS"
+    ],
+
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization"
+    ]
+
+};
+
+
+// =====================================================
+// GLOBAL CORS
+// =====================================================
+
 app.use(
-    cors({
-
-        origin: function (origin, callback) {
-
-            // Allow requests without Origin
-            // such as Postman/server-side requests
-
-            if (!origin) {
-
-                return callback(null, true);
-
-            }
-
-
-            if (
-                allowedOrigins.includes(origin)
-            ) {
-
-                return callback(
-                    null,
-                    true
-                );
-
-            }
-
-
-            console.log(
-                "CORS BLOCKED:",
-                origin
-            );
-
-
-            return callback(
-                new Error(
-                    "Not allowed by CORS"
-                )
-            );
-
-        },
-
-        credentials: true,
-
-        methods: [
-            "GET",
-            "POST",
-            "PUT",
-            "DELETE",
-            "OPTIONS"
-        ],
-
-        allowedHeaders: [
-            "Content-Type",
-            "Authorization"
-        ]
-
-    })
+    cors(corsOptions)
 );
 
 
 // =====================================================
 // EXPRESS 5 PREFLIGHT
 // =====================================================
-
-app.options(
-    /.*/,
-    cors({
-        origin: allowedOrigins,
-        credentials: true
-    })
-);
+//
+// IMPORTANT:
+//
+// DO NOT USE:
+//
+// app.options("*", ...)
+// app.options("/*", ...)
+//
+// Express 5 / path-to-regexp can reject wildcard
+// patterns.
+//
+// cors middleware already handles preflight requests.
+// Therefore no explicit wildcard OPTIONS route is needed.
+//
+// =====================================================
 
 
 // =====================================================
@@ -112,13 +125,16 @@ app.options(
 // =====================================================
 
 app.use(
-    express.json()
+    express.json({
+        limit: "10mb"
+    })
 );
 
 
 app.use(
     express.urlencoded({
-        extended: true
+        extended: true,
+        limit: "10mb"
     })
 );
 
@@ -163,97 +179,303 @@ app.use(
 // IMPORT ROUTES
 // =====================================================
 
-const authRoutes =
-    require("./routes/auth");
-
-console.log(
-    "AUTH ROUTE LOADED"
-);
-
-
-const usersRoutes =
-    require("./routes/users");
-
-console.log(
-    "USERS ROUTE LOADED"
-);
-
-
-const tasksRoutes =
-    require("./routes/tasks");
-
-console.log(
-    "TASKS ROUTE LOADED"
-);
-
-
-const depositsRoutes =
-    require("./routes/deposits");
-
-console.log(
-    "DEPOSITS ROUTE LOADED"
-);
-
-
-const withdrawalsRoutes =
-    require("./routes/withdrawals");
-
-console.log(
-    "WITHDRAWALS ROUTE LOADED"
-);
-
-
-const referralRoutes =
-    require("./routes/referral.js");
-
-console.log(
-    "REFERRAL ROUTE LOADED"
-);
-
-
-const levelRoutes =
-    require("./routes/levels");
-
-console.log(
-    "LEVELS ROUTE LOADED"
-);
-
-
-const adminRoutes =
-    require("./routes/admin");
-
-console.log(
-    "ADMIN ROUTE LOADED"
-);
+let authRoutes;
+let usersRoutes;
+let tasksRoutes;
+let depositsRoutes;
+let withdrawalsRoutes;
+let referralRoutes;
+let levelRoutes;
+let adminRoutes;
+let adminShopRoutes;
+let adminShopOrdersRoutes;
+let shopRoutes;
 
 
 // =====================================================
-// ADMIN SHOP ROUTE
+// AUTH
 // =====================================================
 
-const adminShopRoutes =
-    require("./routes/admin-shop");
+try {
 
-console.log(
-    "ADMIN SHOP ROUTE LOADED"
-);
-const adminShopOrdersRoutes =
-    require("./routes/admin-shop-orders.js");
+    authRoutes =
+        require("./routes/auth");
 
-console.log(
-    "ADMIN SHOP ORDERS ROUTE LOADED"
-);
+    console.log(
+        "AUTH ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "AUTH ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
 
 // =====================================================
-// PUBLIC SHOP ROUTE
+// USERS
 // =====================================================
 
-const shopRoutes =
-    require("./routes/shop");
+try {
 
-console.log(
-    "SHOP ROUTE LOADED"
-);
+    usersRoutes =
+        require("./routes/users");
+
+    console.log(
+        "USERS ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "USERS ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// TASKS
+// =====================================================
+
+try {
+
+    tasksRoutes =
+        require("./routes/tasks");
+
+    console.log(
+        "TASKS ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "TASKS ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// DEPOSITS
+// =====================================================
+
+try {
+
+    depositsRoutes =
+        require("./routes/deposits");
+
+    console.log(
+        "DEPOSITS ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "DEPOSITS ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// WITHDRAWALS
+// =====================================================
+
+try {
+
+    withdrawalsRoutes =
+        require("./routes/withdrawals");
+
+    console.log(
+        "WITHDRAWALS ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "WITHDRAWALS ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// REFERRAL
+// =====================================================
+
+try {
+
+    referralRoutes =
+        require("./routes/referral.js");
+
+    console.log(
+        "REFERRAL ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "REFERRAL ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// LEVELS
+// =====================================================
+
+try {
+
+    levelRoutes =
+        require("./routes/levels");
+
+    console.log(
+        "LEVELS ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "LEVELS ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// ADMIN
+// =====================================================
+
+try {
+
+    adminRoutes =
+        require("./routes/admin");
+
+    console.log(
+        "ADMIN ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "ADMIN ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// ADMIN SHOP
+// =====================================================
+
+try {
+
+    adminShopRoutes =
+        require("./routes/admin-shop");
+
+    console.log(
+        "ADMIN SHOP ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "ADMIN SHOP ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
+
+
+// =====================================================
+// ADMIN SHOP ORDERS
+// =====================================================
+//
+// Kept for compatibility with your existing project.
+//
+// However, your admin-shop.js already contains:
+//
+// GET /orders
+//
+// Therefore we will NOT mount this second route file
+// unless you specifically need its separate routes.
+//
+// =====================================================
+
+try {
+
+    adminShopOrdersRoutes =
+        require("./routes/admin-shop-orders.js");
+
+    console.log(
+        "ADMIN SHOP ORDERS ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.warn(
+        "ADMIN SHOP ORDERS ROUTE NOT LOADED:",
+        error.message
+    );
+
+    adminShopOrdersRoutes = null;
+
+}
+
+
+// =====================================================
+// PUBLIC SHOP
+// =====================================================
+
+try {
+
+    shopRoutes =
+        require("./routes/shop");
+
+    console.log(
+        "SHOP ROUTE LOADED"
+    );
+
+} catch (error) {
+
+    console.error(
+        "SHOP ROUTE LOAD ERROR:",
+        error
+    );
+
+    throw error;
+
+}
 
 
 // =====================================================
@@ -339,13 +561,44 @@ app.use(
     "/api/admin",
     adminRoutes
 );
-app.use(
-    "/api/admin/shop",
-    adminShopOrdersRoutes
-);
+
 
 // =====================================================
 // ADMIN SHOP
+// =====================================================
+//
+// IMPORTANT:
+//
+// admin-shop.js contains:
+//
+// GET    /
+// GET    /statistics
+// GET    /stats
+// GET    /categories
+// POST   /categories
+// PUT    /categories/:id
+// GET    /products
+// GET    /products/:id
+// POST   /products
+// PUT    /products/:id
+// PUT    /products/:id/status
+// PUT    /products/:id/stock
+// DELETE /products/:id
+// GET    /orders
+//
+// Therefore mounting:
+//
+// /api/admin/shop
+//
+// creates:
+//
+// /api/admin/shop
+// /api/admin/shop/statistics
+// /api/admin/shop/stats
+// /api/admin/shop/categories
+// /api/admin/shop/products
+// /api/admin/shop/orders
+//
 // =====================================================
 
 console.log(
@@ -372,8 +625,28 @@ app.use(
 
 
 console.log(
-    "✅ ADMIN SHOP ROUTES MOUNTED"
+    "ADMIN SHOP ROUTES MOUNTED"
 );
+
+
+// =====================================================
+// OPTIONAL OLD ADMIN SHOP ORDERS ROUTE
+// =====================================================
+//
+// IMPORTANT:
+//
+// We do NOT mount this because admin-shop.js already
+// provides:
+//
+// GET /api/admin/shop/orders
+//
+// Mounting another router here can cause duplicate
+// functionality or different authentication/query logic.
+//
+// If admin-shop-orders.js contains unique routes that
+// you still need, we can merge them later safely.
+//
+// =====================================================
 
 
 // -----------------------------------------------------
@@ -394,7 +667,7 @@ app.get(
     "/api/health",
     (req, res) => {
 
-        res.json({
+        return res.json({
 
             success: true,
 
@@ -431,7 +704,7 @@ app.get(
                 );
 
 
-            res.json({
+            return res.json({
 
                 success: true,
 
@@ -439,7 +712,7 @@ app.get(
                     "Connected",
 
                 server_time:
-                    rows[0].server_time
+                    rows[0]?.server_time || null
 
             });
 
@@ -453,7 +726,7 @@ app.get(
             );
 
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -472,22 +745,108 @@ app.get(
 
 
 // =====================================================
-// ROUTE DEBUG
+// ADMIN SHOP DEBUG ROUTE
+// =====================================================
+//
+// This route is intentionally outside admin authentication
+// so you can confirm the server itself is receiving the
+// request.
+//
+// GET /api/admin/shop-test
+//
 // =====================================================
 
 app.get(
     "/api/admin/shop-test",
     (req, res) => {
 
-        res.json({
+        return res.json({
 
             success: true,
 
             message:
-                "ADMIN SHOP ROUTE IS MOUNTED",
+                "ADMIN SHOP SERVER IS RUNNING",
 
             route:
-                "/api/admin/shop"
+                "/api/admin/shop",
+
+            shop_routes: {
+
+                root:
+                    "GET /api/admin/shop",
+
+                statistics:
+                    "GET /api/admin/shop/statistics",
+
+                stats:
+                    "GET /api/admin/shop/stats",
+
+                categories:
+                    "GET /api/admin/shop/categories",
+
+                products:
+                    "GET /api/admin/shop/products",
+
+                orders:
+                    "GET /api/admin/shop/orders"
+
+            }
+
+        });
+
+    }
+);
+
+
+// =====================================================
+// API ROUTE DEBUG
+// =====================================================
+
+app.get(
+    "/api/routes",
+    (req, res) => {
+
+        return res.json({
+
+            success: true,
+
+            routes: [
+
+                "/api/health",
+
+                "/api/database",
+
+                "/api/auth",
+
+                "/api/users",
+
+                "/api/tasks",
+
+                "/api/deposits",
+
+                "/api/withdrawals",
+
+                "/api/referral",
+
+                "/api/levels",
+
+                "/api/admin",
+
+                "/api/admin/shop",
+
+                "/api/admin/shop/statistics",
+
+                "/api/admin/shop/stats",
+
+                "/api/admin/shop/categories",
+
+                "/api/admin/shop/products",
+
+                "/api/admin/shop/orders",
+
+                "/api/shop"
+
+            ]
 
         });
 
@@ -503,13 +862,29 @@ app.use(
     (req, res) => {
 
         console.log(
-            "404 ROUTE:",
-            req.method,
+            "===================================="
+        );
+
+        console.log(
+            "404 ROUTE"
+        );
+
+        console.log(
+            "METHOD:",
+            req.method
+        );
+
+        console.log(
+            "PATH:",
             req.originalUrl
         );
 
+        console.log(
+            "===================================="
+        );
 
-        res.status(404).json({
+
+        return res.status(404).json({
 
             success: false,
 
@@ -544,6 +919,16 @@ app.use(
         );
 
         console.error(
+            "METHOD:",
+            req.method
+        );
+
+        console.error(
+            "PATH:",
+            req.originalUrl
+        );
+
+        console.error(
             err
         );
 
@@ -552,7 +937,14 @@ app.use(
         );
 
 
-        res.status(500).json({
+        if (res.headersSent) {
+
+            return next(err);
+
+        }
+
+
+        return res.status(500).json({
 
             success: false,
 
@@ -600,6 +992,27 @@ async function startServer() {
         );
 
         console.log(
+            "HOST:",
+            process.env.DB_HOST ||
+            process.env.MYSQL_HOST ||
+            "unknown"
+        );
+
+        console.log(
+            "PORT:",
+            process.env.DB_PORT ||
+            process.env.MYSQL_PORT ||
+            "unknown"
+        );
+
+        console.log(
+            "USER:",
+            process.env.DB_USER ||
+            process.env.MYSQL_USER ||
+            "unknown"
+        );
+
+        console.log(
             "DATABASE:",
             process.env.DB_NAME ||
             process.env.MYSQL_DATABASE ||
@@ -610,6 +1023,10 @@ async function startServer() {
             "===================================="
         );
 
+
+        // -------------------------------------------------
+        // START EXPRESS
+        // -------------------------------------------------
 
         app.listen(
             PORT,
@@ -632,15 +1049,56 @@ async function startServer() {
                 );
 
                 console.log(
+                    "===================================="
+                );
+
+                console.log(
                     "ADMIN SHOP:"
                 );
 
                 console.log(
-                    "/api/admin/shop"
+                    "GET /api/admin/shop"
+                );
+
+                console.log(
+                    "GET /api/admin/shop/statistics"
+                );
+
+                console.log(
+                    "GET /api/admin/shop/stats"
+                );
+
+                console.log(
+                    "GET /api/admin/shop/categories"
+                );
+
+                console.log(
+                    "GET /api/admin/shop/products"
+                );
+
+                console.log(
+                    "GET /api/admin/shop/orders"
                 );
 
                 console.log(
                     "===================================="
+                );
+
+                console.log(
+                    "DEBUG:"
+                );
+
+                console.log(
+                    "GET /api/admin/shop-test"
+                );
+
+                console.log(
+                    "GET /api/routes"
+                );
+
+                console.log(
+                    "===================================="
+
                 );
 
             }
@@ -674,7 +1132,7 @@ async function startServer() {
 
 
 // =====================================================
-// RUN
+// RUN SERVER
 // =====================================================
 
 startServer();
