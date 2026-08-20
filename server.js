@@ -237,7 +237,12 @@ const adminShopRoutes =
 console.log(
     "ADMIN SHOP ROUTE LOADED"
 );
+const adminShopOrdersRoutes =
+    require("./routes/admin-shop-orders.js");
 
+console.log(
+    "ADMIN SHOP ORDERS ROUTE LOADED"
+);
 
 // =====================================================
 // PUBLIC SHOP ROUTE
@@ -334,7 +339,10 @@ app.use(
     "/api/admin",
     adminRoutes
 );
-
+app.use(
+    "/api/admin/shop",
+    adminShopOrdersRoutes
+);
 
 // =====================================================
 // ADMIN SHOP
