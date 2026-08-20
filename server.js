@@ -6,82 +6,30 @@ const path = require("path");
 
 const referralRoutes = require("./routes/referral.js");
 const db = require("./config/db.js");
-const auth = require("./middleware/auth");
 
 const app = express();
-const router = express.Router();
-
-
-// ======================================================
-// STATIC FILES
-// ======================================================
-
-app.use(express.static("public"));
-
-
-// ======================================================
-// MIDDLEWARE FIRST
-// ======================================================
 
 console.log("SERVER STARTED - NEW VERSION");
 
-
-// ======================================================
-// CORS CONFIGURATION
-// ======================================================
-
-const allowedOrigins = [
-
-    // Local Development
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-    "http://127.0.0.1:5501",
-    "http://localhost:5501",
-
-    // Client Frontend
-    "https://meta-earn-full.onrender.com",
-
-    // User Frontend
-    "https://meta-earn-admin.onrender.com",
-
-    // Admin Frontend
-    "https://meta-earn-admin-1yum.onrender.com"
-];
-
+// =====================================================
+// CORS
+// =====================================================
 
 app.use(cors({
+    origin: [
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:5501",
+        "http://localhost:5501",
 
-    origin: function (origin, callback) {
+        // Client Frontend
+        "https://meta-earn-full.onrender.com",
 
-        // Allow requests with no origin
-        // Example: Postman or server-to-server requests
-        if (!origin) {
-
-            return callback(null, true);
-
-        }
-
-
-        // Check if origin is allowed
-        if (allowedOrigins.includes(origin)) {
-
-            return callback(null, true);
-
-        }
-
-
-        // Log blocked origins
-        console.log("CORS BLOCKED ORIGIN:", origin);
-
-
-        // Do not crash the server
-        return callback(null, false);
-
-    },
-
+        // Admin Frontend
+        "https://meta-earn-admin.onrender.com"
+    ],
 
     credentials: true,
-
 
     methods: [
         "GET",
@@ -91,36 +39,31 @@ app.use(cors({
         "OPTIONS"
     ],
 
-
     allowedHeaders: [
         "Content-Type",
         "Authorization"
     ]
-
 }));
 
+// =====================================================
+// EXPRESS 5 PRE-FLIGHT FIX
+// =====================================================
 
-// IMPORTANT:
-// DO NOT USE app.options("*", cors()) HERE
-// Express 5 throws PathError for wildcard "*"
+app.options(/.*/, cors());
 
-
-// ======================================================
-// BODY PARSER
-// ======================================================
+// =====================================================
+// BODY PARSERS
+// =====================================================
 
 app.use(express.json());
 
-app.use(
-    express.urlencoded({
-        extended: true
-    })
-);
+app.use(express.urlencoded({
+    extended: true
+}));
 
-
-// ======================================================
+// =====================================================
 // REQUEST LOGGER
-// ======================================================
+// =====================================================
 
 app.use((req, res, next) => {
 
@@ -129,20 +72,17 @@ app.use((req, res, next) => {
     );
 
     next();
-
 });
 
-
-// ======================================================
+// =====================================================
 // STATIC FILES
-// ======================================================
+// =====================================================
 
 app.use(
     express.static(
         path.join(__dirname, "public")
     )
 );
-
 
 app.use(
     "/uploads",
@@ -151,81 +91,141 @@ app.use(
     )
 );
 
-
-// ======================================================
+// =====================================================
 // IMPORT ROUTES
-// ======================================================
+// =====================================================
 
-const usersRoutes = require("./routes/users");
-const levelRoutes = require("./routes/levels");
-const adminRoutes = require("./routes/admin");
+const usersRoutes =
+    require("./routes/users");
 
+const levelRoutes =
+    require("./routes/levels");
 
-// ======================================================
+const adminRoutes =
+    require("./routes/admin");
+
+    const adminShopRoutes =
+    require("./routes/admin-shop");
+// =====================================================
 // API ROUTES
-// ======================================================
+// =====================================================
 
+// -----------------------------------------------------
+// Authentication
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
 
-// AUTH ROUTES
 app.use(
     "/api/auth",
     require("./routes/auth")
 );
 
 
-// USERS ROUTES
+// -----------------------------------------------------
+// Users
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/users",
-    require("./routes/users")
+    usersRoutes
 );
 
 
-// TASK ROUTES
+// -----------------------------------------------------
+// Tasks
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/tasks",
     require("./routes/tasks")
 );
 
 
-// DEPOSIT ROUTES
+// -----------------------------------------------------
+// Deposits
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/deposits",
     require("./routes/deposits")
 );
 
 
-// WITHDRAWAL ROUTES
+// -----------------------------------------------------
+// Withdrawals
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/withdrawals",
     require("./routes/withdrawals")
 );
 
 
-// REFERRAL ROUTES
-// Registered only once
+// -----------------------------------------------------
+// Referral
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/referral",
-    referralRoutes
+    require("./routes/referral.js")
 );
 
 
-// LEVEL ROUTES
+// -----------------------------------------------------
+// Levels
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/levels",
     levelRoutes
 );
 
 
-// ADMIN ROUTES
+// -----------------------------------------------------
+// Admin
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
+
 app.use(
     "/api/admin",
     adminRoutes
 );
 
+app.use(
+    "/api/admin/shop",
+    adminShopRoutes
+);
+// -----------------------------------------------------
+// Referral Routes
+// EXISTING ROUTE - NOT CHANGED
+// -----------------------------------------------------
 
-// ======================================================
+app.use(
+    "/api/referral",
+    referralRoutes
+);
+
+
+// =====================================================
+// META EARN SHOP
+// NEW MODULE
+// =====================================================
+
+app.use(
+    "/api/shop",
+    require("./routes/shop")
+);
+
+
+// =====================================================
 // HEALTH CHECK
-// ======================================================
+// =====================================================
 
 app.get(
     "/api/health",
@@ -237,11 +237,14 @@ app.get(
 
             status: "OK",
 
-            uptime: process.uptime(),
+            uptime:
+                process.uptime(),
 
-            memory: process.memoryUsage(),
+            memory:
+                process.memoryUsage(),
 
-            timestamp: new Date().toISOString()
+            timestamp:
+                new Date().toISOString()
 
         });
 
@@ -249,9 +252,9 @@ app.get(
 );
 
 
-// ======================================================
+// =====================================================
 // DATABASE CHECK
-// ======================================================
+// =====================================================
 
 app.get(
     "/api/database",
@@ -259,39 +262,39 @@ app.get(
 
         try {
 
-            const [rows] = await db.query(
-                "SELECT NOW() AS server_time"
-            );
-
+            const [rows] =
+                await db.query(
+                    "SELECT NOW() AS server_time"
+                );
 
             res.json({
 
                 success: true,
 
-                database: "Connected",
+                database:
+                    "Connected",
 
                 server_time:
                     rows[0].server_time
 
             });
 
-        }
-
-        catch (error) {
+        } catch (error) {
 
             console.error(
                 "DATABASE CHECK ERROR:",
                 error
             );
 
-
             res.status(500).json({
 
                 success: false,
 
-                database: "Disconnected",
+                database:
+                    "Disconnected",
 
-                error: error.message
+                error:
+                    error.message
 
             });
 
@@ -301,9 +304,9 @@ app.get(
 );
 
 
-// ======================================================
+// =====================================================
 // 404 HANDLER
-// ======================================================
+// =====================================================
 
 app.use(
     (req, res) => {
@@ -312,7 +315,8 @@ app.use(
 
             success: false,
 
-            message: "Route not found"
+            message:
+                "Route not found"
 
         });
 
@@ -320,9 +324,9 @@ app.use(
 );
 
 
-// ======================================================
+// =====================================================
 // GLOBAL ERROR HANDLER
-// ======================================================
+// =====================================================
 
 app.use(
     (err, req, res, next) => {
@@ -331,7 +335,6 @@ app.use(
             "SERVER ERROR:",
             err
         );
-
 
         res.status(500).json({
 
@@ -351,9 +354,9 @@ app.use(
 );
 
 
-// ======================================================
+// =====================================================
 // START SERVER
-// ======================================================
+// =====================================================
 
 const PORT =
     process.env.PORT || 5000;
@@ -363,7 +366,10 @@ async function startServer() {
 
     try {
 
-        // Test database connection
+        // -------------------------------------------------
+        // DATABASE TEST
+        // -------------------------------------------------
+
         await db.query("SELECT 1");
 
 
@@ -379,24 +385,31 @@ async function startServer() {
             "===================================="
         );
 
+
         console.log(
             "Database : Connected"
         );
+
 
         console.log(
             `Port     : ${PORT}`
         );
 
+
         console.log(
             `URL      : http://localhost:${PORT}`
         );
+
 
         console.log(
             "====================================\n"
         );
 
 
-        // Start Express server
+        // -------------------------------------------------
+        // START EXPRESS SERVER
+        // -------------------------------------------------
+
         app.listen(
             PORT,
             () => {
@@ -408,9 +421,8 @@ async function startServer() {
             }
         );
 
-    }
 
-    catch (error) {
+    } catch (error) {
 
         console.log(
             "\n===================================="
@@ -428,12 +440,15 @@ async function startServer() {
             "====================================\n"
         );
 
-
         process.exit(1);
 
     }
 
 }
 
+
+// =====================================================
+// RUN SERVER
+// =====================================================
 
 startServer();
