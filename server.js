@@ -4,75 +4,141 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
-const referralRoutes = require("./routes/referral.js");
 const db = require("./config/db.js");
 
 const app = express();
 
-console.log("SERVER STARTED - NEW VERSION");
+console.log("====================================");
+console.log("META EARN SERVER INITIALIZING");
+console.log("====================================");
+
 
 // =====================================================
 // CORS
 // =====================================================
 
-app.use(cors({
-    origin: [
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-        "http://127.0.0.1:5501",
-        "http://localhost:5501",
+const allowedOrigins = [
 
-        // Client Frontend
-        "https://meta-earn-full.onrender.com",
+    // LOCAL FRONTEND
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501",
 
-        // Admin Frontend
-        "https://meta-earn-admin.onrender.com"
-    ],
+    // MAIN CLIENT
+    "https://meta-earn-full.onrender.com",
 
-    credentials: true,
+    // ADMIN CLIENTS
+    "https://meta-earn-admin.onrender.com",
+    "https://meta-earn-admin-1yum.onrender.com"
+];
 
-    methods: [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-    ],
 
-    allowedHeaders: [
-        "Content-Type",
-        "Authorization"
-    ]
-}));
+app.use(
+    cors({
+
+        origin: function (origin, callback) {
+
+            // Allow requests without Origin
+            // such as Postman/server-side requests
+
+            if (!origin) {
+
+                return callback(null, true);
+
+            }
+
+
+            if (
+                allowedOrigins.includes(origin)
+            ) {
+
+                return callback(
+                    null,
+                    true
+                );
+
+            }
+
+
+            console.log(
+                "CORS BLOCKED:",
+                origin
+            );
+
+
+            return callback(
+                new Error(
+                    "Not allowed by CORS"
+                )
+            );
+
+        },
+
+        credentials: true,
+
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "OPTIONS"
+        ],
+
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization"
+        ]
+
+    })
+);
+
 
 // =====================================================
-// EXPRESS 5 PRE-FLIGHT FIX
+// EXPRESS 5 PREFLIGHT
 // =====================================================
 
-app.options(/.*/, cors());
+app.options(
+    /.*/,
+    cors({
+        origin: allowedOrigins,
+        credentials: true
+    })
+);
+
 
 // =====================================================
 // BODY PARSERS
 // =====================================================
 
-app.use(express.json());
+app.use(
+    express.json()
+);
 
-app.use(express.urlencoded({
-    extended: true
-}));
+
+app.use(
+    express.urlencoded({
+        extended: true
+    })
+);
+
 
 // =====================================================
 // REQUEST LOGGER
 // =====================================================
 
-app.use((req, res, next) => {
+app.use(
+    (req, res, next) => {
 
-    console.log(
-        `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`
-    );
+        console.log(
+            `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`
+        );
 
-    next();
-});
+        next();
+
+    }
+);
+
 
 // =====================================================
 // STATIC FILES
@@ -84,6 +150,7 @@ app.use(
     )
 );
 
+
 app.use(
     "/uploads",
     express.static(
@@ -91,39 +158,116 @@ app.use(
     )
 );
 
+
 // =====================================================
 // IMPORT ROUTES
 // =====================================================
 
+const authRoutes =
+    require("./routes/auth");
+
+console.log(
+    "AUTH ROUTE LOADED"
+);
+
+
 const usersRoutes =
     require("./routes/users");
+
+console.log(
+    "USERS ROUTE LOADED"
+);
+
+
+const tasksRoutes =
+    require("./routes/tasks");
+
+console.log(
+    "TASKS ROUTE LOADED"
+);
+
+
+const depositsRoutes =
+    require("./routes/deposits");
+
+console.log(
+    "DEPOSITS ROUTE LOADED"
+);
+
+
+const withdrawalsRoutes =
+    require("./routes/withdrawals");
+
+console.log(
+    "WITHDRAWALS ROUTE LOADED"
+);
+
+
+const referralRoutes =
+    require("./routes/referral.js");
+
+console.log(
+    "REFERRAL ROUTE LOADED"
+);
+
 
 const levelRoutes =
     require("./routes/levels");
 
+console.log(
+    "LEVELS ROUTE LOADED"
+);
+
+
 const adminRoutes =
     require("./routes/admin");
 
-    const adminShopRoutes =
+console.log(
+    "ADMIN ROUTE LOADED"
+);
+
+
+// =====================================================
+// ADMIN SHOP ROUTE
+// =====================================================
+
+const adminShopRoutes =
     require("./routes/admin-shop");
+
+console.log(
+    "ADMIN SHOP ROUTE LOADED"
+);
+
+
+// =====================================================
+// PUBLIC SHOP ROUTE
+// =====================================================
+
+const shopRoutes =
+    require("./routes/shop");
+
+console.log(
+    "SHOP ROUTE LOADED"
+);
+
+
 // =====================================================
 // API ROUTES
 // =====================================================
 
+
 // -----------------------------------------------------
-// Authentication
-// EXISTING ROUTE - NOT CHANGED
+// AUTH
 // -----------------------------------------------------
 
 app.use(
     "/api/auth",
-    require("./routes/auth")
+    authRoutes
 );
 
 
 // -----------------------------------------------------
-// Users
-// EXISTING ROUTE - NOT CHANGED
+// USERS
 // -----------------------------------------------------
 
 app.use(
@@ -133,52 +277,47 @@ app.use(
 
 
 // -----------------------------------------------------
-// Tasks
-// EXISTING ROUTE - NOT CHANGED
+// TASKS
 // -----------------------------------------------------
 
 app.use(
     "/api/tasks",
-    require("./routes/tasks")
+    tasksRoutes
 );
 
 
 // -----------------------------------------------------
-// Deposits
-// EXISTING ROUTE - NOT CHANGED
+// DEPOSITS
 // -----------------------------------------------------
 
 app.use(
     "/api/deposits",
-    require("./routes/deposits")
+    depositsRoutes
 );
 
 
 // -----------------------------------------------------
-// Withdrawals
-// EXISTING ROUTE - NOT CHANGED
+// WITHDRAWALS
 // -----------------------------------------------------
 
 app.use(
     "/api/withdrawals",
-    require("./routes/withdrawals")
+    withdrawalsRoutes
 );
 
 
 // -----------------------------------------------------
-// Referral
-// EXISTING ROUTE - NOT CHANGED
+// REFERRAL
 // -----------------------------------------------------
 
 app.use(
     "/api/referral",
-    require("./routes/referral.js")
+    referralRoutes
 );
 
 
 // -----------------------------------------------------
-// Levels
-// EXISTING ROUTE - NOT CHANGED
+// LEVELS
 // -----------------------------------------------------
 
 app.use(
@@ -188,8 +327,7 @@ app.use(
 
 
 // -----------------------------------------------------
-// Admin
-// EXISTING ROUTE - NOT CHANGED
+// ADMIN
 // -----------------------------------------------------
 
 app.use(
@@ -197,29 +335,46 @@ app.use(
     adminRoutes
 );
 
+
+// =====================================================
+// ADMIN SHOP
+// =====================================================
+
+console.log(
+    "===================================="
+);
+
+console.log(
+    "MOUNTING ADMIN SHOP ROUTES"
+);
+
+console.log(
+    "/api/admin/shop"
+);
+
+console.log(
+    "===================================="
+);
+
+
 app.use(
     "/api/admin/shop",
     adminShopRoutes
 );
-// -----------------------------------------------------
-// Referral Routes
-// EXISTING ROUTE - NOT CHANGED
-// -----------------------------------------------------
 
-app.use(
-    "/api/referral",
-    referralRoutes
+
+console.log(
+    "✅ ADMIN SHOP ROUTES MOUNTED"
 );
 
 
-// =====================================================
-// META EARN SHOP
-// NEW MODULE
-// =====================================================
+// -----------------------------------------------------
+// PUBLIC SHOP
+// -----------------------------------------------------
 
 app.use(
     "/api/shop",
-    require("./routes/shop")
+    shopRoutes
 );
 
 
@@ -237,11 +392,11 @@ app.get(
 
             status: "OK",
 
+            message:
+                "Meta Earn API is running",
+
             uptime:
                 process.uptime(),
-
-            memory:
-                process.memoryUsage(),
 
             timestamp:
                 new Date().toISOString()
@@ -267,6 +422,7 @@ app.get(
                     "SELECT NOW() AS server_time"
                 );
 
+
             res.json({
 
                 success: true,
@@ -279,12 +435,15 @@ app.get(
 
             });
 
-        } catch (error) {
+        }
+
+        catch (error) {
 
             console.error(
                 "DATABASE CHECK ERROR:",
                 error
             );
+
 
             res.status(500).json({
 
@@ -305,18 +464,55 @@ app.get(
 
 
 // =====================================================
+// ROUTE DEBUG
+// =====================================================
+
+app.get(
+    "/api/admin/shop-test",
+    (req, res) => {
+
+        res.json({
+
+            success: true,
+
+            message:
+                "ADMIN SHOP ROUTE IS MOUNTED",
+
+            route:
+                "/api/admin/shop"
+
+        });
+
+    }
+);
+
+
+// =====================================================
 // 404 HANDLER
 // =====================================================
 
 app.use(
     (req, res) => {
 
+        console.log(
+            "404 ROUTE:",
+            req.method,
+            req.originalUrl
+        );
+
+
         res.status(404).json({
 
             success: false,
 
             message:
-                "Route not found"
+                "Route not found",
+
+            method:
+                req.method,
+
+            path:
+                req.originalUrl
 
         });
 
@@ -332,9 +528,21 @@ app.use(
     (err, req, res, next) => {
 
         console.error(
-            "SERVER ERROR:",
+            "===================================="
+        );
+
+        console.error(
+            "SERVER ERROR"
+        );
+
+        console.error(
             err
         );
+
+        console.error(
+            "===================================="
+        );
+
 
         res.status(500).json({
 
@@ -370,15 +578,24 @@ async function startServer() {
         // DATABASE TEST
         // -------------------------------------------------
 
-        await db.query("SELECT 1");
+        await db.query(
+            "SELECT 1"
+        );
 
 
         console.log(
-            "\n===================================="
+            "===================================="
         );
 
         console.log(
-            "META_EARN SERVER STARTED"
+            "DATABASE CONNECTION SUCCESSFUL"
+        );
+
+        console.log(
+            "DATABASE:",
+            process.env.DB_NAME ||
+            process.env.MYSQL_DATABASE ||
+            "unknown"
         );
 
         console.log(
@@ -386,58 +603,59 @@ async function startServer() {
         );
 
 
-        console.log(
-            "Database : Connected"
-        );
-
-
-        console.log(
-            `Port     : ${PORT}`
-        );
-
-
-        console.log(
-            `URL      : http://localhost:${PORT}`
-        );
-
-
-        console.log(
-            "====================================\n"
-        );
-
-
-        // -------------------------------------------------
-        // START EXPRESS SERVER
-        // -------------------------------------------------
-
         app.listen(
             PORT,
             () => {
 
                 console.log(
-                    `Server running on port ${PORT}`
+                    "===================================="
+                );
+
+                console.log(
+                    "META EARN SERVER STARTED"
+                );
+
+                console.log(
+                    `PORT: ${PORT}`
+                );
+
+                console.log(
+                    `LOCAL: http://localhost:${PORT}`
+                );
+
+                console.log(
+                    "ADMIN SHOP:"
+                );
+
+                console.log(
+                    "/api/admin/shop"
+                );
+
+                console.log(
+                    "===================================="
                 );
 
             }
         );
 
+    }
 
-    } catch (error) {
+    catch (error) {
 
-        console.log(
-            "\n===================================="
+        console.error(
+            "===================================="
         );
 
-        console.log(
+        console.error(
             "DATABASE CONNECTION FAILED"
         );
 
-        console.log(
-            error.message
+        console.error(
+            error
         );
 
-        console.log(
-            "====================================\n"
+        console.error(
+            "===================================="
         );
 
         process.exit(1);
@@ -448,7 +666,7 @@ async function startServer() {
 
 
 // =====================================================
-// RUN SERVER
+// RUN
 // =====================================================
 
 startServer();
