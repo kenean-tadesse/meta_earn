@@ -891,7 +891,8 @@ router.post(
 
         try {
 
-            const userId = getUserId(req);
+            const userId =
+                getUserId(req);
 
 
             if (!userId) {
@@ -917,10 +918,29 @@ router.post(
             // VALIDATE DELIVERY INFORMATION
             // ------------------------------------------------
 
-            if (
-                !delivery_name ||
-                !delivery_name.trim()
-            ) {
+            const cleanDeliveryName =
+                String(
+                    delivery_name || ""
+                ).trim();
+
+            const cleanDeliveryPhone =
+                String(
+                    delivery_phone || ""
+                ).trim();
+
+            const cleanDeliveryAddress =
+                String(
+                    delivery_address || ""
+                ).trim();
+
+            const cleanNotes =
+                notes !== undefined &&
+                notes !== null
+                    ? String(notes).trim()
+                    : null;
+
+
+            if (!cleanDeliveryName) {
 
                 return res.status(400).json({
                     success: false,
@@ -931,10 +951,7 @@ router.post(
             }
 
 
-            if (
-                !delivery_phone ||
-                !delivery_phone.trim()
-            ) {
+            if (!cleanDeliveryPhone) {
 
                 return res.status(400).json({
                     success: false,
@@ -945,10 +962,7 @@ router.post(
             }
 
 
-            if (
-                !delivery_address ||
-                !delivery_address.trim()
-            ) {
+            if (!cleanDeliveryAddress) {
 
                 return res.status(400).json({
                     success: false,
@@ -960,31 +974,34 @@ router.post(
 
 
             // ------------------------------------------------
-            // DATABASE CONNECTION
+            // OPEN TRANSACTION
             // ------------------------------------------------
 
             connection =
                 await db.getConnection();
 
-
             await connection.beginTransaction();
 
 
             // ------------------------------------------------
-            // LOCK USER
+            // LOCK USER ROW
             // ------------------------------------------------
 
-            const [users] = await connection.query(`
-                SELECT
-                    id,
-                    fullname,
-                    username,
-                    phone,
-                    balance
-                FROM users
-                WHERE id = ?
-                FOR UPDATE
-            `, [userId]);
+            const [users] =
+                await connection.query(`
+                    SELECT
+                        id,
+                        fullname,
+                        username,
+                        phone,
+                        balance
+                    FROM users
+                    WHERE id = ?
+                    LIMIT 1
+                    FOR UPDATE
+                `, [
+                    userId
+                ]);
 
 
             if (users.length === 0) {
@@ -1000,52 +1017,52 @@ router.post(
             }
 
 
-            const user = users[0];
+            const user =
+                users[0];
 
 
-            const userBalance =
-                Number(user.balance || 0);
+            const currentBalance =
+                Number(
+                    user.balance || 0
+                );
 
 
             // ------------------------------------------------
-            // GET CART
-            //
-            // CORRECT STRUCTURE:
-            //
-            // shop_cart
-            //      ↓
-            // shop_cart_items
-            //      ↓
-            // shop_products
+            // LOAD CART
             // ------------------------------------------------
 
-            const [cart] = await connection.query(`
-                SELECT
+            const [cart] =
+                await connection.query(`
+                    SELECT
 
-                    c.id AS cart_id,
+                        c.id AS cart_id,
 
-                    ci.id AS cart_item_id,
-                    ci.product_id,
-                    ci.quantity,
+                        ci.id AS cart_item_id,
+                        ci.product_id,
+                        ci.quantity,
 
-                    p.name,
-                    p.price,
-                    p.stock,
-                    p.status,
-                    p.image
+                        p.name,
+                        p.price,
+                        p.stock,
+                        p.status,
+                        p.image
 
-                FROM shop_cart c
+                    FROM shop_cart c
 
-                INNER JOIN shop_cart_items ci
-                    ON ci.cart_id = c.id
+                    INNER JOIN shop_cart_items ci
+                        ON ci.cart_id = c.id
 
-                INNER JOIN shop_products p
-                    ON ci.product_id = p.id
+                    INNER JOIN shop_products p
+                        ON ci.product_id = p.id
 
-                WHERE c.user_id = ?
+                    WHERE c.user_id = ?
 
-                FOR UPDATE
-            `, [userId]);
+                    ORDER BY ci.id ASC
+
+                    FOR UPDATE
+                `, [
+                    userId
+                ]);
 
 
             if (cart.length === 0) {
@@ -1062,25 +1079,52 @@ router.post(
 
 
             // ------------------------------------------------
-            // VALIDATE STOCK
+            // VALIDATE CART + CALCULATE TOTAL
             // ------------------------------------------------
 
             let totalAmount = 0;
 
 
-            for (const item of cart) {
+            for (
+                const item
+                of cart
+            ) {
 
                 const quantity =
-                    Number(item.quantity);
+                    Number(
+                        item.quantity
+                    );
 
                 const price =
-                    Number(item.price);
+                    Number(
+                        item.price
+                    );
 
                 const stock =
-                    Number(item.stock);
+                    Number(
+                        item.stock
+                    );
 
 
-                if (item.status !== "active") {
+                if (
+                    !Number.isInteger(quantity) ||
+                    quantity <= 0
+                ) {
+
+                    await connection.rollback();
+
+                    return res.status(400).json({
+                        success: false,
+                        message:
+                            `Invalid quantity for ${item.name}`
+                    });
+
+                }
+
+
+                if (
+                    item.status !== "active"
+                ) {
 
                     await connection.rollback();
 
@@ -1093,7 +1137,9 @@ router.post(
                 }
 
 
-                if (stock <= 0) {
+                if (
+                    stock <= 0
+                ) {
 
                     await connection.rollback();
 
@@ -1106,7 +1152,9 @@ router.post(
                 }
 
 
-                if (quantity > stock) {
+                if (
+                    quantity > stock
+                ) {
 
                     await connection.rollback();
 
@@ -1126,7 +1174,9 @@ router.post(
 
 
             totalAmount =
-                Number(totalAmount.toFixed(2));
+                Number(
+                    totalAmount.toFixed(2)
+                );
 
 
             // ------------------------------------------------
@@ -1134,7 +1184,7 @@ router.post(
             // ------------------------------------------------
 
             if (
-                userBalance <
+                currentBalance <
                 totalAmount
             ) {
 
@@ -1148,7 +1198,7 @@ router.post(
                         "Insufficient Meta Earn balance",
 
                     balance:
-                        userBalance,
+                        currentBalance,
 
                     required:
                         totalAmount,
@@ -1157,7 +1207,7 @@ router.post(
                         Number(
                             (
                                 totalAmount -
-                                userBalance
+                                currentBalance
                             ).toFixed(2)
                         )
 
@@ -1167,15 +1217,36 @@ router.post(
 
 
             // ------------------------------------------------
-            // CREATE ORDER
+            // GENERATE UNIQUE ORDER NUMBER
+            // ------------------------------------------------
+
+            const orderNumber =
+                `ME-${Date.now()}-${userId}-${Math.floor(
+                    1000 +
+                    Math.random() * 9000
+                )}`;
+
+
+            // ------------------------------------------------
+            // CREATE SHOP ORDER
             //
-            // Uses your ACTUAL table columns.
+            // Uses the ACTUAL shop_orders columns:
+            //
+            // order_number
+            // user_id
+            // total_amount
+            // status
+            // delivery_name
+            // delivery_phone
+            // delivery_address
+            // notes
             // ------------------------------------------------
 
             const [orderResult] =
                 await connection.query(`
                     INSERT INTO shop_orders
                     (
+                        order_number,
                         user_id,
                         total_amount,
                         status,
@@ -1188,7 +1259,8 @@ router.post(
                     (
                         ?,
                         ?,
-                        'confirmed',
+                        ?,
+                        ?,
                         ?,
                         ?,
                         ?,
@@ -1196,19 +1268,21 @@ router.post(
                     )
                 `, [
 
+                    orderNumber,
+
                     userId,
 
                     totalAmount,
 
-                    delivery_name.trim(),
+                    "pending",
 
-                    delivery_phone.trim(),
+                    cleanDeliveryName,
 
-                    delivery_address.trim(),
+                    cleanDeliveryPhone,
 
-                    notes
-                        ? notes.trim()
-                        : null
+                    cleanDeliveryAddress,
+
+                    cleanNotes
 
                 ]);
 
@@ -1220,21 +1294,31 @@ router.post(
             // ------------------------------------------------
             // CREATE ORDER ITEMS
             //
-            // Uses your ACTUAL columns:
+            // Uses the ACTUAL shop_order_items columns:
             //
-            // unit_price
-            // subtotal
+            // order_id
+            // product_id
+            // quantity
+            // price
+            // total
             // ------------------------------------------------
 
-            for (const item of cart) {
+            for (
+                const item
+                of cart
+            ) {
 
                 const quantity =
-                    Number(item.quantity);
+                    Number(
+                        item.quantity
+                    );
 
                 const price =
-                    Number(item.price);
+                    Number(
+                        item.price
+                    );
 
-                const itemSubtotal =
+                const itemTotal =
                     Number(
                         (
                             price *
@@ -1248,14 +1332,12 @@ router.post(
                     (
                         order_id,
                         product_id,
-                        product_name,
                         quantity,
-                        unit_price,
-                        subtotal
+                        price,
+                        total
                     )
                     VALUES
                     (
-                        ?,
                         ?,
                         ?,
                         ?,
@@ -1268,13 +1350,11 @@ router.post(
 
                     item.product_id,
 
-                    item.name,
-
                     quantity,
 
                     price,
 
-                    itemSubtotal
+                    itemTotal
 
                 ]);
 
@@ -1282,66 +1362,17 @@ router.post(
 
 
             // ------------------------------------------------
-            // CREATE PAYMENT RECORD
+            // DEDUCT USER WALLET BALANCE
             //
-            // Uses your ACTUAL shop_payments schema.
-            // ------------------------------------------------
-
-            const transactionReference =
-                "SHOP-" +
-                Date.now() +
-                "-" +
-                Math.floor(
-                    1000 +
-                    Math.random() * 9000
-                );
-
-
-            await connection.query(`
-                INSERT INTO shop_payments
-                (
-                    order_id,
-                    user_id,
-                    amount,
-                    payment_method,
-                    status,
-                    transaction_reference
-                )
-                VALUES
-                (
-                    ?,
-                    ?,
-                    ?,
-                    'wallet',
-                    'completed',
-                    ?
-                )
-            `, [
-
-                orderId,
-
-                userId,
-
-                totalAmount,
-
-                transactionReference
-
-            ]);
-
-
-            // ------------------------------------------------
-            // DEDUCT USER BALANCE
-            //
-            // THIS ONLY TOUCHES users.balance.
-            // It does NOT modify deposit tables.
+            // This only modifies users.balance.
             // ------------------------------------------------
 
             const [balanceUpdate] =
                 await connection.query(`
                     UPDATE users
 
-                    SET balance =
-                        balance - ?
+                    SET
+                        balance = balance - ?
 
                     WHERE
                         id = ?
@@ -1377,26 +1408,37 @@ router.post(
             // REDUCE STOCK
             // ------------------------------------------------
 
-            for (const item of cart) {
+            for (
+                const item
+                of cart
+            ) {
+
+                const quantity =
+                    Number(
+                        item.quantity
+                    );
+
 
                 const [stockUpdate] =
                     await connection.query(`
                         UPDATE shop_products
 
-                        SET stock =
-                            stock - ?
+                        SET
+                            stock = stock - ?
 
                         WHERE
                             id = ?
 
                             AND stock >= ?
+
+                            AND status = 'active'
                     `, [
 
-                        Number(item.quantity),
+                        quantity,
 
                         item.product_id,
 
-                        Number(item.quantity)
+                        quantity
 
                     ]);
 
@@ -1408,9 +1450,12 @@ router.post(
                     await connection.rollback();
 
                     return res.status(400).json({
+
                         success: false,
+
                         message:
-                            `${item.name} stock changed. Please try again.`
+                            `${item.name} stock changed before checkout completed. Please try again.`
+
                     });
 
                 }
@@ -1439,20 +1484,26 @@ router.post(
 
                 await connection.query(`
                     DELETE FROM shop_cart_items
+
                     WHERE cart_id = ?
-                `, [cartId]);
+                `, [
+                    cartId
+                ]);
 
             }
 
 
             // ------------------------------------------------
-            // DELETE EMPTY CART
+            // DELETE USER CART
             // ------------------------------------------------
 
             await connection.query(`
                 DELETE FROM shop_cart
+
                 WHERE user_id = ?
-            `, [userId]);
+            `, [
+                userId
+            ]);
 
 
             // ------------------------------------------------
@@ -1461,11 +1512,17 @@ router.post(
 
             const [balanceRows] =
                 await connection.query(`
-                    SELECT balance
+                    SELECT
+                        balance
+
                     FROM users
+
                     WHERE id = ?
+
                     LIMIT 1
-                `, [userId]);
+                `, [
+                    userId
+                ]);
 
 
             const newBalance =
@@ -1482,10 +1539,10 @@ router.post(
 
 
             // ------------------------------------------------
-            // SUCCESS
+            // SUCCESS RESPONSE
             // ------------------------------------------------
 
-            res.status(201).json({
+            return res.status(201).json({
 
                 success: true,
 
@@ -1497,21 +1554,24 @@ router.post(
                     id:
                         orderId,
 
+                    order_number:
+                        orderNumber,
+
+                    user_id:
+                        userId,
+
                     total_amount:
                         totalAmount,
 
                     status:
-                        "confirmed",
-
-                    payment_status:
-                        "paid"
+                        "pending"
 
                 },
 
                 wallet: {
 
                     previous_balance:
-                        userBalance,
+                        currentBalance,
 
                     amount_paid:
                         totalAmount,
@@ -1527,12 +1587,25 @@ router.post(
         } catch (error) {
 
             console.error(
-                "SHOP CHECKOUT ERROR:",
+                "===================================="
+            );
+
+            console.error(
+                "SHOP CHECKOUT ERROR"
+            );
+
+            console.error(
                 error
             );
 
+            console.error(
+                "===================================="
+            );
 
-            if (connection) {
+
+            if (
+                connection
+            ) {
 
                 try {
 
@@ -1550,7 +1623,7 @@ router.post(
             }
 
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -1558,14 +1631,19 @@ router.post(
                     "Checkout failed. No payment was completed.",
 
                 error:
-                    error.message
+                    error.message,
+
+                code:
+                    error.code || null
 
             });
 
 
         } finally {
 
-            if (connection) {
+            if (
+                connection
+            ) {
 
                 connection.release();
 
