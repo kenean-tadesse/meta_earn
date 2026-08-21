@@ -2081,55 +2081,59 @@ router.get(
 
         try {
 
-            console.log("ADMIN SHOP ORDERS REQUEST");
+            console.log(
+                "ADMIN SHOP ORDERS REQUEST"
+            );
 
             const search =
-                String(req.query.search || "").trim();
+                String(
+                    req.query.search || ""
+                ).trim();
 
             const status =
-                String(req.query.status || "").trim();
+                String(
+                    req.query.status || ""
+                ).trim().toLowerCase();
+
 
             let sql = `
                 SELECT
 
                     o.id,
                     o.user_id,
-
                     o.order_number,
 
                     o.total_amount,
-
                     o.status,
 
                     o.delivery_name,
-
                     o.delivery_phone,
-
                     o.delivery_address,
-
                     o.notes,
 
                     o.created_at,
                     o.updated_at,
 
+                    u.fullname,
+                    u.username,
                     u.email,
-
-                    u.employee_no
+                    u.phone
 
                 FROM shop_orders o
 
                 LEFT JOIN users u
-                    ON o.user_id = u.user_id
+                    ON o.user_id = u.id
 
                 WHERE 1 = 1
             `;
 
+
             const params = [];
 
 
-            // ------------------------------------------------
+            // =================================================
             // SEARCH
-            // ------------------------------------------------
+            // =================================================
 
             if (search) {
 
@@ -2139,8 +2143,10 @@ router.get(
                         OR o.order_number LIKE ?
                         OR o.delivery_name LIKE ?
                         OR o.delivery_phone LIKE ?
+                        OR u.fullname LIKE ?
+                        OR u.username LIKE ?
                         OR u.email LIKE ?
-                        OR u.employee_no LIKE ?
+                        OR u.phone LIKE ?
                     )
                 `;
 
@@ -2153,24 +2159,29 @@ router.get(
                     keyword,
                     keyword,
                     keyword,
+                    keyword,
+                    keyword,
                     keyword
                 );
 
             }
 
 
-            // ------------------------------------------------
-            // STATUS FILTER
-            // ------------------------------------------------
+            // =================================================
+            // STATUS
+            // =================================================
 
             const allowedStatuses = [
+
                 "pending",
                 "processing",
                 "shipped",
                 "delivered",
                 "completed",
                 "cancelled"
+
             ];
+
 
             if (
                 allowedStatuses.includes(status)
@@ -2185,10 +2196,19 @@ router.get(
             }
 
 
+            // =================================================
+            // ORDER
+            // =================================================
+
             sql += `
                 ORDER BY
                     o.created_at DESC
             `;
+
+
+            console.log(
+                "ADMIN SHOP ORDERS SQL EXECUTING"
+            );
 
 
             const [orders] =
@@ -2198,66 +2218,58 @@ router.get(
                 );
 
 
-            // ------------------------------------------------
-            // LOAD ITEMS FOR EACH ORDER
-            // ------------------------------------------------
+            // =================================================
+            // NORMALIZE DATA FOR FRONTEND
+            // =================================================
 
-            for (
-                const order of orders
-            ) {
+            const normalizedOrders =
+                orders.map(order => ({
 
-                const [items] =
-                    await db.query(
-                        `
-                        SELECT
+                    ...order,
 
-                            oi.id,
+                    order_id:
+                        order.id,
 
-                            oi.product_id,
+                    user_name:
+                        order.fullname ||
+                        order.username ||
+                        order.delivery_name ||
+                        `User #${order.user_id}`,
 
-                            oi.quantity,
+                    user_email:
+                        order.email || "",
 
-                            oi.price,
+                    phone:
+                        order.phone ||
+                        order.delivery_phone ||
+                        "",
 
-                            oi.total,
+                    phone_number:
+                        order.phone ||
+                        order.delivery_phone ||
+                        "",
 
-                            p.name,
+                    shipping_address:
+                        order.delivery_address ||
+                        "",
 
-                            p.image
+                    total:
+                        Number(
+                            order.total_amount || 0
+                        )
 
-                        FROM shop_order_items oi
+                }));
 
-                        LEFT JOIN shop_products p
-                            ON oi.product_id = p.id
-
-                        WHERE oi.order_id = ?
-
-                        ORDER BY oi.id ASC
-                        `,
-                        [
-                            order.id
-                        ]
-                    );
-
-
-                order.items =
-                    items || [];
-
-            }
-
-
-            // ------------------------------------------------
-            // RESPONSE
-            // ------------------------------------------------
 
             return res.json({
 
                 success: true,
 
-                orders: orders,
-
                 count:
-                    orders.length
+                    normalizedOrders.length,
+
+                orders:
+                    normalizedOrders
 
             });
 
@@ -2265,9 +2277,21 @@ router.get(
         } catch (error) {
 
             console.error(
-                "ADMIN SHOP ORDERS ERROR:",
+                "===================================="
+            );
+
+            console.error(
+                "ADMIN SHOP ORDERS ERROR"
+            );
+
+            console.error(
                 error
             );
+
+            console.error(
+                "===================================="
+            );
+
 
             return res.status(500).json({
 
@@ -2277,7 +2301,10 @@ router.get(
                     "Failed to load shop orders",
 
                 error:
-                    error.message
+                    error.message,
+
+                code:
+                    error.code || null
 
             });
 
