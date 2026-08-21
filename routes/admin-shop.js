@@ -4,203 +4,291 @@ const router = express.Router();
 const db = require("../config/db.js");
 const auth = require("../middleware/auth");
 
-
-
-// ============================================================
-// ADMIN AUTHENTICATION HELPER
-// ============================================================
-
-async function adminAuth(req, res, next) {
-
-    try {
-
-        // Use the existing authentication middleware.
-        // This does NOT change your JWT/authentication system.
-
-        auth(req, res, () => {
-
-            const user = req.user || {};
-
-            const role =
-                user.role_name ||
-                user.role ||
-                user.user_role ||
-                user.roleName ||
-                "";
-
-            const normalizedRole =
-                String(role)
-                    .toLowerCase()
-                    .trim();
-
-            const adminRoles = [
-                "admin",
-                "administrator",
-                "super admin",
-                "super_admin",
-                "superadmin"
-            ];
-
-            if (!adminRoles.includes(normalizedRole)) {
-
-                return res.status(403).json({
-
-                    success: false,
-
-                    message:
-                        "Administrator access required"
-
-                });
-
-            }
-
-            next();
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "ADMIN AUTH ERROR:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Administrator authentication failed"
-
-        });
-
-    }
-
-}
-
 // ============================================================
 // ADMIN AUTHORIZATION
 // ============================================================
 
 function requireAdmin(req, res, next) {
 
-    const user = req.user;
+    try {
 
-    if (!user) {
+        const user = req.user || {};
 
-        return res.status(401).json({
+        const role =
+            user.role_name ||
+            user.role ||
+            user.user_role ||
+            user.roleName ||
+            "";
+
+        const normalizedRole =
+            String(role)
+                .toLowerCase()
+                .trim();
+
+        const adminRoles = [
+            "admin",
+            "administrator",
+            "super admin",
+            "super_admin",
+            "superadmin"
+        ];
+
+        if (!adminRoles.includes(normalizedRole)) {
+
+            return res.status(403).json({
+                success: false,
+                message: "Administrator access required"
+            });
+
+        }
+
+        next();
+
+    } catch (error) {
+
+        console.error(
+            "ADMIN AUTHORIZATION ERROR:",
+            error
+        );
+
+        return res.status(500).json({
             success: false,
-            message: "Authentication required"
+            message: "Administrator authorization failed"
         });
 
     }
-
-    const role =
-        user.role ||
-        user.role_name ||
-        user.roleName;
-
-    if (
-        role !== "admin" &&
-        role !== "Admin" &&
-        role !== "ADMIN" &&
-        role !== "Administrator"
-    ) {
-
-        return res.status(403).json({
-            success: false,
-            message: "Administrator access required"
-        });
-
-    }
-
-    next();
 
 }
 
 
 // ============================================================
-// DASHBOARD STATISTICS
-// GET /api/admin/shop/stats
+// ADMIN AUTH MIDDLEWARE
+// ============================================================
+//
+// IMPORTANT:
+// Authentication happens ONCE.
+// We do NOT call auth() inside another auth() function.
+//
+// ============================================================
+
+const adminAuth = [
+    auth,
+    requireAdmin
+];
+
+
+// ============================================================
+// TEST ROUTE
+// GET /api/admin/shop
+// ============================================================
+
+router.get("/", adminAuth, async (req, res) => {
+
+    res.json({
+
+        success: true,
+
+        message:
+            "Meta Earn Admin Shop API is working",
+
+        routes: {
+
+            categories:
+                "/api/admin/shop/categories",
+
+            products:
+                "/api/admin/shop/products",
+
+            statistics:
+                "/api/admin/shop/statistics"
+
+        }
+
+    });
+
+});
+
+
+// ============================================================
+// SHOP STATISTICS
+//
+// GET /api/admin/shop/statistics
+//
 // ============================================================
 
 router.get(
-    "/stats",
-    auth,
-    requireAdmin,
+    "/statistics",
+    adminAuth,
     async (req, res) => {
 
         try {
 
-            const [products] = await db.query(`
-                SELECT COUNT(*) AS total
-                FROM shop_products
-            `);
+            // ------------------------------------------------
+            // TOTAL PRODUCTS
+            // ------------------------------------------------
 
-            const [active] = await db.query(`
-                SELECT COUNT(*) AS total
-                FROM shop_products
-                WHERE status = 'active'
-            `);
+            const [products] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_products
+                `);
 
-            const [inactive] = await db.query(`
-                SELECT COUNT(*) AS total
-                FROM shop_products
-                WHERE status = 'inactive'
-            `);
 
-            const [categories] = await db.query(`
-                SELECT COUNT(*) AS total
-                FROM shop_categories
-            `);
+            // ------------------------------------------------
+            // ACTIVE PRODUCTS
+            // ------------------------------------------------
 
-            const [stock] = await db.query(`
-                SELECT COALESCE(SUM(stock), 0) AS total
-                FROM shop_products
-                WHERE status = 'active'
-            `);
+            const [activeProducts] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_products
+                    WHERE status = 'active'
+                `);
 
-            const [orders] = await db.query(`
-                SELECT COUNT(*) AS total
-                FROM shop_orders
-            `);
 
-            const [sales] = await db.query(`
-                SELECT
-                    COALESCE(
-                        SUM(total_amount),
-                        0
-                    ) AS total
-                FROM shop_orders
-                WHERE status NOT IN ('cancelled')
-            `);
+            // ------------------------------------------------
+            // INACTIVE PRODUCTS
+            // ------------------------------------------------
 
-            res.json({
+            const [inactiveProducts] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_products
+                    WHERE status = 'inactive'
+                `);
+
+
+            // ------------------------------------------------
+            // CATEGORIES
+            // ------------------------------------------------
+
+            const [categories] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_categories
+                `);
+
+
+            // ------------------------------------------------
+            // TOTAL STOCK
+            // ------------------------------------------------
+
+            const [stock] =
+                await db.query(`
+                    SELECT
+                        COALESCE(
+                            SUM(stock),
+                            0
+                        ) AS total
+                    FROM shop_products
+                    WHERE status = 'active'
+                `);
+
+
+            // ------------------------------------------------
+            // ORDERS
+            // ------------------------------------------------
+
+            let orderCount = 0;
+
+            try {
+
+                const [orders] =
+                    await db.query(`
+                        SELECT COUNT(*) AS total
+                        FROM shop_orders
+                    `);
+
+                orderCount =
+                    Number(
+                        orders[0]?.total || 0
+                    );
+
+            } catch (orderError) {
+
+                console.warn(
+                    "shop_orders table unavailable:",
+                    orderError.message
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // SALES
+            // ------------------------------------------------
+
+            let salesTotal = 0;
+
+            try {
+
+                const [sales] =
+                    await db.query(`
+                        SELECT
+                            COALESCE(
+                                SUM(total_amount),
+                                0
+                            ) AS total
+                        FROM shop_orders
+                        WHERE status != 'cancelled'
+                    `);
+
+                salesTotal =
+                    Number(
+                        sales[0]?.total || 0
+                    );
+
+            } catch (salesError) {
+
+                console.warn(
+                    "Sales calculation unavailable:",
+                    salesError.message
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // RESPONSE
+            // ------------------------------------------------
+
+            return res.json({
 
                 success: true,
 
-                stats: {
+                statistics: {
 
                     products:
-                        Number(products[0].total || 0),
+                        Number(
+                            products[0]?.total || 0
+                        ),
 
                     active_products:
-                        Number(active[0].total || 0),
+                        Number(
+                            activeProducts[0]?.total || 0
+                        ),
 
                     inactive_products:
-                        Number(inactive[0].total || 0),
+                        Number(
+                            inactiveProducts[0]?.total || 0
+                        ),
 
                     categories:
-                        Number(categories[0].total || 0),
+                        Number(
+                            categories[0]?.total || 0
+                        ),
 
                     stock:
-                        Number(stock[0].total || 0),
+                        Number(
+                            stock[0]?.total || 0
+                        ),
 
                     orders:
-                        Number(orders[0].total || 0),
+                        orderCount,
 
                     sales:
-                        Number(sales[0].total || 0)
+                        salesTotal
 
                 }
 
@@ -209,7 +297,125 @@ router.get(
         } catch (error) {
 
             console.error(
-                "ADMIN SHOP STATS ERROR:",
+                "ADMIN SHOP STATISTICS ERROR:",
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to load shop statistics",
+
+                error:
+                    error.message
+
+            });
+
+        }
+
+    }
+);
+
+
+// ============================================================
+// ALSO SUPPORT /stats
+// ============================================================
+//
+// This keeps compatibility with your old frontend/backend code.
+//
+// GET /api/admin/shop/stats
+//
+// ============================================================
+
+router.get(
+    "/stats",
+    adminAuth,
+    async (req, res) => {
+
+        try {
+
+            const [products] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_products
+                `);
+
+            const [activeProducts] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_products
+                    WHERE status = 'active'
+                `);
+
+            const [inactiveProducts] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_products
+                    WHERE status = 'inactive'
+                `);
+
+            const [categories] =
+                await db.query(`
+                    SELECT COUNT(*) AS total
+                    FROM shop_categories
+                `);
+
+            const [stock] =
+                await db.query(`
+                    SELECT
+                        COALESCE(
+                            SUM(stock),
+                            0
+                        ) AS total
+                    FROM shop_products
+                    WHERE status = 'active'
+                `);
+
+            res.json({
+
+                success: true,
+
+                statistics: {
+
+                    products:
+                        Number(
+                            products[0]?.total || 0
+                        ),
+
+                    active_products:
+                        Number(
+                            activeProducts[0]?.total || 0
+                        ),
+
+                    inactive_products:
+                        Number(
+                            inactiveProducts[0]?.total || 0
+                        ),
+
+                    categories:
+                        Number(
+                            categories[0]?.total || 0
+                        ),
+
+                    stock:
+                        Number(
+                            stock[0]?.total || 0
+                        ),
+
+                    orders: 0,
+
+                    sales: 0
+
+                }
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "SHOP STATS ERROR:",
                 error
             );
 
@@ -233,7 +439,9 @@ router.get(
 
 // ============================================================
 // GET ALL CATEGORIES
+//
 // GET /api/admin/shop/categories
+//
 // ============================================================
 
 router.get(
@@ -243,18 +451,29 @@ router.get(
 
         try {
 
-            const [rows] = await db.query(`
-                SELECT
-                    id,
-                    name,
-                    description,
-                    status,
-                    created_at
-                FROM shop_categories
-                ORDER BY name ASC
-            `);
+            const [rows] =
+                await db.query(`
 
-            res.json({
+                    SELECT
+
+                        id,
+
+                        name,
+
+                        description,
+
+                        status,
+
+                        created_at
+
+                    FROM shop_categories
+
+                    ORDER BY name ASC
+
+                `);
+
+
+            return res.json({
 
                 success: true,
 
@@ -269,7 +488,7 @@ router.get(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -289,7 +508,9 @@ router.get(
 
 // ============================================================
 // CREATE CATEGORY
+//
 // POST /api/admin/shop/categories
+//
 // ============================================================
 
 router.post(
@@ -299,15 +520,20 @@ router.post(
 
         try {
 
-            const {
-                name,
-                description
-            } = req.body;
+            const name =
+                String(
+                    req.body.name || ""
+                ).trim();
 
-            if (
-                !name ||
-                !name.trim()
-            ) {
+            const description =
+                req.body.description
+                    ? String(
+                        req.body.description
+                    ).trim()
+                    : null;
+
+
+            if (!name) {
 
                 return res.status(400).json({
 
@@ -320,14 +546,22 @@ router.post(
 
             }
 
-            const [existing] = await db.query(`
-                SELECT id
-                FROM shop_categories
-                WHERE name = ?
-                LIMIT 1
-            `, [
-                name.trim()
-            ]);
+
+            const [existing] =
+                await db.query(`
+
+                    SELECT id
+
+                    FROM shop_categories
+
+                    WHERE name = ?
+
+                    LIMIT 1
+
+                `, [
+                    name
+                ]);
+
 
             if (existing.length > 0) {
 
@@ -342,30 +576,36 @@ router.post(
 
             }
 
-            const [result] = await db.query(`
-                INSERT INTO shop_categories
-                (
+
+            const [result] =
+                await db.query(`
+
+                    INSERT INTO shop_categories
+
+                    (
+                        name,
+                        description,
+                        status
+                    )
+
+                    VALUES
+
+                    (
+                        ?,
+                        ?,
+                        'active'
+                    )
+
+                `, [
+
                     name,
-                    description,
-                    status
-                )
-                VALUES
-                (
-                    ?,
-                    ?,
-                    'active'
-                )
-            `, [
 
-                name.trim(),
+                    description
 
-                description
-                    ? description.trim()
-                    : null
+                ]);
 
-            ]);
 
-            res.status(201).json({
+            return res.status(201).json({
 
                 success: true,
 
@@ -384,7 +624,7 @@ router.post(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -404,7 +644,9 @@ router.post(
 
 // ============================================================
 // UPDATE CATEGORY
+//
 // PUT /api/admin/shop/categories/:id
+//
 // ============================================================
 
 router.put(
@@ -417,11 +659,6 @@ router.put(
             const categoryId =
                 Number(req.params.id);
 
-            const {
-                name,
-                description,
-                status
-            } = req.body;
 
             if (
                 !Number.isInteger(categoryId) ||
@@ -439,10 +676,26 @@ router.put(
 
             }
 
-            if (
-                !name ||
-                !name.trim()
-            ) {
+
+            const name =
+                String(
+                    req.body.name || ""
+                ).trim();
+
+            const description =
+                req.body.description
+                    ? String(
+                        req.body.description
+                    ).trim()
+                    : null;
+
+            const status =
+                req.body.status === "inactive"
+                    ? "inactive"
+                    : "active";
+
+
+            if (!name) {
 
                 return res.status(400).json({
 
@@ -455,33 +708,34 @@ router.put(
 
             }
 
-            const validStatus =
-                status === "inactive"
-                    ? "inactive"
-                    : "active";
 
-            const [result] = await db.query(`
-                UPDATE shop_categories
+            const [result] =
+                await db.query(`
 
-                SET
-                    name = ?,
-                    description = ?,
-                    status = ?
+                    UPDATE shop_categories
 
-                WHERE id = ?
-            `, [
+                    SET
 
-                name.trim(),
+                        name = ?,
 
-                description
-                    ? description.trim()
-                    : null,
+                        description = ?,
 
-                validStatus,
+                        status = ?
 
-                categoryId
+                    WHERE id = ?
 
-            ]);
+                `, [
+
+                    name,
+
+                    description,
+
+                    status,
+
+                    categoryId
+
+                ]);
+
 
             if (
                 result.affectedRows === 0
@@ -498,7 +752,8 @@ router.put(
 
             }
 
-            res.json({
+
+            return res.json({
 
                 success: true,
 
@@ -514,7 +769,7 @@ router.put(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -534,7 +789,9 @@ router.put(
 
 // ============================================================
 // GET ALL PRODUCTS
+//
 // GET /api/admin/shop/products
+//
 // ============================================================
 
 router.get(
@@ -545,13 +802,18 @@ router.get(
         try {
 
             const search =
-                (req.query.search || "")
-                    .trim();
+                String(
+                    req.query.search || ""
+                ).trim();
 
             const status =
-                req.query.status || "";
+                String(
+                    req.query.status || ""
+                ).trim();
+
 
             let sql = `
+
                 SELECT
 
                     p.id,
@@ -579,33 +841,50 @@ router.get(
                 FROM shop_products p
 
                 LEFT JOIN shop_categories c
+
                     ON p.category_id = c.id
 
                 WHERE 1 = 1
+
             `;
 
+
             const params = [];
+
 
             if (search) {
 
                 sql += `
+
                     AND (
+
                         p.name LIKE ?
+
                         OR p.description LIKE ?
+
                         OR c.name LIKE ?
+
                     )
+
                 `;
+
 
                 const keyword =
                     `%${search}%`;
 
+
                 params.push(
+
                     keyword,
+
                     keyword,
+
                     keyword
+
                 );
 
             }
+
 
             if (
                 status === "active" ||
@@ -613,17 +892,23 @@ router.get(
             ) {
 
                 sql += `
+
                     AND p.status = ?
+
                 `;
 
                 params.push(status);
 
             }
 
+
             sql += `
+
                 ORDER BY
                     p.created_at DESC
+
             `;
+
 
             const [rows] =
                 await db.query(
@@ -631,7 +916,8 @@ router.get(
                     params
                 );
 
-            res.json({
+
+            return res.json({
 
                 success: true,
 
@@ -646,7 +932,7 @@ router.get(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -666,19 +952,21 @@ router.get(
 
 // ============================================================
 // GET SINGLE PRODUCT
+//
 // GET /api/admin/shop/products/:id
+//
 // ============================================================
 
 router.get(
     "/products/:id",
     adminAuth,
-    requireAdmin,
     async (req, res) => {
 
         try {
 
             const productId =
                 Number(req.params.id);
+
 
             if (
                 !Number.isInteger(productId) ||
@@ -696,20 +984,30 @@ router.get(
 
             }
 
+
             const [rows] =
                 await db.query(`
 
                     SELECT
 
                         p.id,
+
                         p.category_id,
+
                         p.name,
+
                         p.description,
+
                         p.price,
+
                         p.stock,
+
                         p.image,
+
                         p.status,
+
                         p.created_at,
+
                         p.updated_at,
 
                         c.name AS category_name
@@ -717,6 +1015,7 @@ router.get(
                     FROM shop_products p
 
                     LEFT JOIN shop_categories c
+
                         ON p.category_id = c.id
 
                     WHERE p.id = ?
@@ -727,9 +1026,8 @@ router.get(
                     productId
                 ]);
 
-            if (
-                rows.length === 0
-            ) {
+
+            if (!rows.length) {
 
                 return res.status(404).json({
 
@@ -742,23 +1040,23 @@ router.get(
 
             }
 
-            res.json({
+
+            return res.json({
 
                 success: true,
 
-                product:
-                    rows[0]
+                product: rows[0]
 
             });
 
         } catch (error) {
 
             console.error(
-                "ADMIN SINGLE PRODUCT ERROR:",
+                "GET PRODUCT ERROR:",
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -778,7 +1076,9 @@ router.get(
 
 // ============================================================
 // CREATE PRODUCT
+//
 // POST /api/admin/shop/products
+//
 // ============================================================
 
 router.post(
@@ -807,10 +1107,13 @@ router.post(
             } = req.body;
 
 
-            if (
-                !name ||
-                !name.trim()
-            ) {
+            const productName =
+                String(
+                    name || ""
+                ).trim();
+
+
+            if (!productName) {
 
                 return res.status(400).json({
 
@@ -832,7 +1135,9 @@ router.post(
 
 
             if (
-                !Number.isFinite(productPrice) ||
+                !Number.isFinite(
+                    productPrice
+                ) ||
                 productPrice < 0
             ) {
 
@@ -849,7 +1154,9 @@ router.post(
 
 
             if (
-                !Number.isInteger(productStock) ||
+                !Number.isInteger(
+                    productStock
+                ) ||
                 productStock < 0
             ) {
 
@@ -865,33 +1172,37 @@ router.post(
             }
 
 
-            let categoryId =
-                category_id
-                    ? Number(category_id)
-                    : null;
+            let categoryId = null;
 
 
             if (
-                categoryId !== null &&
-                (
-                    !Number.isInteger(categoryId) ||
-                    categoryId <= 0
-                )
+                category_id !== null &&
+                category_id !== undefined &&
+                category_id !== ""
             ) {
 
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        "Invalid category"
-
-                });
-
-            }
+                categoryId =
+                    Number(category_id);
 
 
-            if (categoryId !== null) {
+                if (
+                    !Number.isInteger(
+                        categoryId
+                    ) ||
+                    categoryId <= 0
+                ) {
+
+                    return res.status(400).json({
+
+                        success: false,
+
+                        message:
+                            "Invalid category"
+
+                    });
+
+                }
+
 
                 const [category] =
                     await db.query(`
@@ -908,9 +1219,8 @@ router.post(
                         categoryId
                     ]);
 
-                if (
-                    category.length === 0
-                ) {
+
+                if (!category.length) {
 
                     return res.status(400).json({
 
@@ -932,57 +1242,85 @@ router.post(
                     : "active";
 
 
+            const productDescription =
+                description
+                    ? String(
+                        description
+                    ).trim()
+                    : null;
+
+
+            const productImage =
+                image
+                    ? String(
+                        image
+                    ).trim()
+                    : null;
+
+
             const [result] =
                 await db.query(`
 
                     INSERT INTO shop_products
 
                     (
+
                         category_id,
+
                         name,
+
                         description,
+
                         price,
+
                         stock,
+
                         image,
+
                         status
+
                     )
 
                     VALUES
 
                     (
+
                         ?,
+
                         ?,
+
                         ?,
+
                         ?,
+
                         ?,
+
                         ?,
+
                         ?
+
                     )
 
                 `, [
 
                     categoryId,
 
-                    name.trim(),
+                    productName,
 
-                    description
-                        ? description.trim()
-                        : null,
+                    productDescription,
 
                     productPrice,
 
                     productStock,
 
-                    image
-                        ? image.trim()
-                        : null,
+                    productImage,
 
                     productStatus
 
                 ]);
 
 
-            res.status(201).json({
+            return res.status(201).json({
 
                 success: true,
 
@@ -1001,7 +1339,7 @@ router.post(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -1021,7 +1359,9 @@ router.post(
 
 // ============================================================
 // UPDATE PRODUCT
+//
 // PUT /api/admin/shop/products/:id
+//
 // ============================================================
 
 router.put(
@@ -1033,6 +1373,24 @@ router.put(
 
             const productId =
                 Number(req.params.id);
+
+
+            if (
+                !Number.isInteger(productId) ||
+                productId <= 0
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Invalid product ID"
+
+                });
+
+            }
+
 
             const {
 
@@ -1053,27 +1411,13 @@ router.put(
             } = req.body;
 
 
-            if (
-                !Number.isInteger(productId) ||
-                productId <= 0
-            ) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        "Invalid product ID"
-
-                });
-
-            }
+            const productName =
+                String(
+                    name || ""
+                ).trim();
 
 
-            if (
-                !name ||
-                !name.trim()
-            ) {
+            if (!productName) {
 
                 return res.status(400).json({
 
@@ -1095,7 +1439,9 @@ router.put(
 
 
             if (
-                !Number.isFinite(productPrice) ||
+                !Number.isFinite(
+                    productPrice
+                ) ||
                 productPrice < 0
             ) {
 
@@ -1112,7 +1458,9 @@ router.put(
 
 
             if (
-                !Number.isInteger(productStock) ||
+                !Number.isInteger(
+                    productStock
+                ) ||
                 productStock < 0
             ) {
 
@@ -1128,28 +1476,66 @@ router.put(
             }
 
 
-            let categoryId =
-                category_id
-                    ? Number(category_id)
-                    : null;
+            let categoryId = null;
 
 
             if (
-                categoryId !== null &&
-                (
-                    !Number.isInteger(categoryId) ||
-                    categoryId <= 0
-                )
+                category_id !== null &&
+                category_id !== undefined &&
+                category_id !== ""
             ) {
 
-                return res.status(400).json({
+                categoryId =
+                    Number(category_id);
 
-                    success: false,
 
-                    message:
-                        "Invalid category"
+                if (
+                    !Number.isInteger(
+                        categoryId
+                    ) ||
+                    categoryId <= 0
+                ) {
 
-                });
+                    return res.status(400).json({
+
+                        success: false,
+
+                        message:
+                            "Invalid category"
+
+                    });
+
+                }
+
+
+                const [category] =
+                    await db.query(`
+
+                        SELECT id
+
+                        FROM shop_categories
+
+                        WHERE id = ?
+
+                        LIMIT 1
+
+                    `, [
+                        categoryId
+                    ]);
+
+
+                if (!category.length) {
+
+                    return res.status(400).json({
+
+                        success: false,
+
+                        message:
+                            "Category not found"
+
+                    });
+
+                }
 
             }
 
@@ -1187,10 +1573,12 @@ router.put(
 
                     categoryId,
 
-                    name.trim(),
+                    productName,
 
                     description
-                        ? description.trim()
+                        ? String(
+                            description
+                        ).trim()
                         : null,
 
                     productPrice,
@@ -1198,7 +1586,9 @@ router.put(
                     productStock,
 
                     image
-                        ? image.trim()
+                        ? String(
+                            image
+                        ).trim()
                         : null,
 
                     productStatus,
@@ -1224,7 +1614,7 @@ router.put(
             }
 
 
-            res.json({
+            return res.json({
 
                 success: true,
 
@@ -1240,7 +1630,7 @@ router.put(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -1259,12 +1649,14 @@ router.put(
 
 
 // ============================================================
-// DELETE PRODUCT
-// DELETE /api/admin/shop/products/:id
+// UPDATE PRODUCT STATUS
+//
+// PUT /api/admin/shop/products/:id/status
+//
 // ============================================================
 
-router.delete(
-    "/products/:id",
+router.put(
+    "/products/:id/status",
     adminAuth,
     async (req, res) => {
 
@@ -1273,9 +1665,14 @@ router.delete(
             const productId =
                 Number(req.params.id);
 
+            const status =
+                req.body.status;
+
 
             if (
-                !Number.isInteger(productId) ||
+                !Number.isInteger(
+                    productId
+                ) ||
                 productId <= 0
             ) {
 
@@ -1291,53 +1688,17 @@ router.delete(
             }
 
 
-            // ------------------------------------------------
-            // IMPORTANT
-            // ------------------------------------------------
-            // We do NOT delete products that have already
-            // been used in orders.
-            // Instead, we deactivate them.
-            // ------------------------------------------------
-
-            const [orders] =
-                await db.query(`
-
-                    SELECT id
-
-                    FROM shop_order_items
-
-                    WHERE product_id = ?
-
-                    LIMIT 1
-
-                `, [
-                    productId
-                ]);
-
-
             if (
-                orders.length > 0
+                status !== "active" &&
+                status !== "inactive"
             ) {
 
-                await db.query(`
+                return res.status(400).json({
 
-                    UPDATE shop_products
-
-                    SET status = 'inactive'
-
-                    WHERE id = ?
-
-                `, [
-                    productId
-                ]);
-
-
-                return res.json({
-
-                    success: true,
+                    success: false,
 
                     message:
-                        "Product has previous orders and was deactivated instead of deleted"
+                        "Status must be active or inactive"
 
                 });
 
@@ -1347,12 +1708,18 @@ router.delete(
             const [result] =
                 await db.query(`
 
-                    DELETE FROM shop_products
+                    UPDATE shop_products
+
+                    SET status = ?
 
                     WHERE id = ?
 
                 `, [
+
+                    status,
+
                     productId
+
                 ]);
 
 
@@ -1372,28 +1739,28 @@ router.delete(
             }
 
 
-            res.json({
+            return res.json({
 
                 success: true,
 
                 message:
-                    "Product deleted successfully"
+                    "Product status updated successfully"
 
             });
 
         } catch (error) {
 
             console.error(
-                "DELETE PRODUCT ERROR:",
+                "UPDATE PRODUCT STATUS ERROR:",
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
                 message:
-                    "Failed to delete product",
+                    "Failed to update product status",
 
                 error:
                     error.message
@@ -1407,12 +1774,14 @@ router.delete(
 
 
 // ============================================================
-// UPDATE STOCK ONLY
+// UPDATE PRODUCT STOCK
+//
 // PUT /api/admin/shop/products/:id/stock
+//
 // ============================================================
 
 router.put(
-    "/products/:id/activate",
+    "/products/:id/stock",
     adminAuth,
     async (req, res) => {
 
@@ -1426,7 +1795,9 @@ router.put(
 
 
             if (
-                !Number.isInteger(productId) ||
+                !Number.isInteger(
+                    productId
+                ) ||
                 productId <= 0
             ) {
 
@@ -1493,7 +1864,7 @@ router.put(
             }
 
 
-            res.json({
+            return res.json({
 
                 success: true,
 
@@ -1509,7 +1880,7 @@ router.put(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
@@ -1528,14 +1899,15 @@ router.put(
 
 
 // ============================================================
-// UPDATE PRODUCT STATUS
-// PUT /api/admin/shop/products/:id/status
+// DELETE PRODUCT
+//
+// DELETE /api/admin/shop/products/:id
+//
 // ============================================================
 
-router.put(
-    "/products/:id/status",
-    auth,
-    requireAdmin,
+router.delete(
+    "/products/:id",
+    adminAuth,
     async (req, res) => {
 
         try {
@@ -1543,13 +1915,12 @@ router.put(
             const productId =
                 Number(req.params.id);
 
-            const status =
-                req.body.status;
-
 
             if (
-                status !== "active" &&
-                status !== "inactive"
+                !Number.isInteger(
+                    productId
+                ) ||
+                productId <= 0
             ) {
 
                 return res.status(400).json({
@@ -1557,28 +1928,95 @@ router.put(
                     success: false,
 
                     message:
-                        "Status must be active or inactive"
+                        "Invalid product ID"
 
                 });
 
             }
 
 
-            const [result] =
+            // ------------------------------------------------
+            // Check if product is used in an order
+            // ------------------------------------------------
+
+            let usedInOrder = false;
+
+
+            try {
+
+                const [orders] =
+                    await db.query(`
+
+                        SELECT id
+
+                        FROM shop_order_items
+
+                        WHERE product_id = ?
+
+                        LIMIT 1
+
+                    `, [
+                        productId
+                    ]);
+
+
+                usedInOrder =
+                    orders.length > 0;
+
+            } catch (orderError) {
+
+                console.warn(
+                    "Order-item check unavailable:",
+                    orderError.message
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // If used in an order, deactivate instead
+            // ------------------------------------------------
+
+            if (usedInOrder) {
+
                 await db.query(`
 
                     UPDATE shop_products
 
-                    SET status = ?
+                    SET status = 'inactive'
 
                     WHERE id = ?
 
                 `, [
-
-                    status,
-
                     productId
+                ]);
 
+
+                return res.json({
+
+                    success: true,
+
+                    message:
+                        "Product has previous orders and was deactivated instead of deleted"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Delete
+            // ------------------------------------------------
+
+            const [result] =
+                await db.query(`
+
+                    DELETE FROM shop_products
+
+                    WHERE id = ?
+
+                `, [
+                    productId
                 ]);
 
 
@@ -1598,28 +2036,28 @@ router.put(
             }
 
 
-            res.json({
+            return res.json({
 
                 success: true,
 
                 message:
-                    "Product status updated successfully"
+                    "Product deleted successfully"
 
             });
 
         } catch (error) {
 
             console.error(
-                "UPDATE PRODUCT STATUS ERROR:",
+                "DELETE PRODUCT ERROR:",
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
                 message:
-                    "Failed to update product status",
+                    "Failed to delete product",
 
                 error:
                     error.message
@@ -1631,6 +2069,222 @@ router.put(
     }
 );
 
+// ============================================================
+// ADMIN SHOP ORDERS
+// GET /api/admin/shop/orders
+// ============================================================
+
+router.get(
+    "/orders",
+    adminAuth,
+    async (req, res) => {
+
+        try {
+
+            console.log("ADMIN SHOP ORDERS REQUEST");
+
+            const search =
+                String(req.query.search || "").trim();
+
+            const status =
+                String(req.query.status || "").trim();
+
+            let sql = `
+                SELECT
+
+                    o.id,
+                    o.user_id,
+
+                    o.order_number,
+
+                    o.total_amount,
+
+                    o.status,
+
+                    o.delivery_name,
+
+                    o.delivery_phone,
+
+                    o.delivery_address,
+
+                    o.notes,
+
+                    o.created_at,
+                    o.updated_at,
+
+                    u.email,
+
+                    u.employee_no
+
+                FROM shop_orders o
+
+                LEFT JOIN users u
+                    ON o.user_id = u.user_id
+
+                WHERE 1 = 1
+            `;
+
+            const params = [];
+
+
+            // ------------------------------------------------
+            // SEARCH
+            // ------------------------------------------------
+
+            if (search) {
+
+                sql += `
+                    AND (
+                        CAST(o.id AS CHAR) LIKE ?
+                        OR o.order_number LIKE ?
+                        OR o.delivery_name LIKE ?
+                        OR o.delivery_phone LIKE ?
+                        OR u.email LIKE ?
+                        OR u.employee_no LIKE ?
+                    )
+                `;
+
+                const keyword =
+                    `%${search}%`;
+
+                params.push(
+                    keyword,
+                    keyword,
+                    keyword,
+                    keyword,
+                    keyword,
+                    keyword
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // STATUS FILTER
+            // ------------------------------------------------
+
+            const allowedStatuses = [
+                "pending",
+                "processing",
+                "shipped",
+                "delivered",
+                "completed",
+                "cancelled"
+            ];
+
+            if (
+                allowedStatuses.includes(status)
+            ) {
+
+                sql += `
+                    AND o.status = ?
+                `;
+
+                params.push(status);
+
+            }
+
+
+            sql += `
+                ORDER BY
+                    o.created_at DESC
+            `;
+
+
+            const [orders] =
+                await db.query(
+                    sql,
+                    params
+                );
+
+
+            // ------------------------------------------------
+            // LOAD ITEMS FOR EACH ORDER
+            // ------------------------------------------------
+
+            for (
+                const order of orders
+            ) {
+
+                const [items] =
+                    await db.query(
+                        `
+                        SELECT
+
+                            oi.id,
+
+                            oi.product_id,
+
+                            oi.quantity,
+
+                            oi.price,
+
+                            oi.total,
+
+                            p.name,
+
+                            p.image
+
+                        FROM shop_order_items oi
+
+                        LEFT JOIN shop_products p
+                            ON oi.product_id = p.id
+
+                        WHERE oi.order_id = ?
+
+                        ORDER BY oi.id ASC
+                        `,
+                        [
+                            order.id
+                        ]
+                    );
+
+
+                order.items =
+                    items || [];
+
+            }
+
+
+            // ------------------------------------------------
+            // RESPONSE
+            // ------------------------------------------------
+
+            return res.json({
+
+                success: true,
+
+                orders: orders,
+
+                count:
+                    orders.length
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "ADMIN SHOP ORDERS ERROR:",
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to load shop orders",
+
+                error:
+                    error.message
+
+            });
+
+        }
+
+    }
+);
 
 // ============================================================
 // EXPORT
